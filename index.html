@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProjectGasu — Real-Time Air Quality Monitor</title>
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%2352b788'/></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <header>
+    <a class="logo" href="#" aria-label="ProjectGasu home">
+      <img src="logo.webp" alt="" class="logo-img" />
+      <span class="logo-text">ProjectGasu</span>
+      <div id="status-dot" title="Sensor connection status"></div>
+    </a>
+
+    <div class="header-right">
+      <nav class="header-nav-links" aria-label="Page sections">
+        <a class="header-nav-link" href="#dashboard"
+           onclick="event.preventDefault();document.getElementById('dashboard').scrollIntoView({behavior:'smooth'})">Dashboard</a>
+        <a class="header-nav-link" href="#compare-section"
+           onclick="event.preventDefault();document.getElementById('compare-section').scrollIntoView({behavior:'smooth'})">Comparison</a>
+        <a class="header-nav-link" href="#about"
+           onclick="event.preventDefault();document.getElementById('about').scrollIntoView({behavior:'smooth'})">About the Team</a>
+      </nav>
+
+      <div class="header-controls">
+        <label for="profile-select">Profile</label>
+        <select id="profile-select"></select>
+      </div>
+
+      <span class="last-updated-wrap">
+        <strong id="last-updated">--:--:--</strong>
+      </span>
+
+      <button class="header-live-btn" onclick="document.getElementById('dashboard').scrollIntoView({behavior:'smooth'})">
+        ● Live Data
+      </button>
+
+      <button class="header-grid-btn" aria-label="Menu" onclick="document.getElementById('compare-section').scrollIntoView({behavior:'smooth'})">
+        <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="hero-counter-strip" aria-hidden="true">
+    <button class="hero-counter-arrow" id="cnt-up">↑</button>
+    <div class="hero-counter-nums">
+      <span class="hero-cnt-green" id="cnt-current">01</span>
+      <span class="hero-cnt-slash">/</span>
+      <span class="hero-cnt-muted">04</span>
+    </div>
+    <button class="hero-counter-arrow" id="cnt-down">↓</button>
+  </div>
+
+  <section class="hero-section" aria-label="About ProjectGasu">
+
+    <div class="hero-main">
+      <h1 class="hero-heading-new">
+        <span class="hero-line-dark">One</span>
+        <span class="hero-line-dark hero-line-highlight">Breath</span>
+        <span class="hero-line-dark">at a Time</span>
+      </h1>
+      <a href="#dashboard" class="hero-dash-link">Dashboard →</a>
+    </div>
+
+    <div class="hero-visual" aria-hidden="true">
+      <canvas id="lung-hero-canvas" class="hero-lung-canvas"></canvas>
+    </div>
+
+    <div class="hero-side-text" aria-hidden="true">
+      AIR QUALITY MONITORING · REAL TIME · SDS011
+    </div>
+
+  </section>
+
+  <script>
+  (function () {
+    var canvas = document.getElementById('lung-hero-canvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var img = new Image();
+    img.onload = function () {
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
+      var d  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      var px = d.data;
+      for (var i = 0; i < px.length; i += 4) {
+        var lum = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
+        if (lum < 32) {
+          px[i + 3] = 0;
+        } else if (lum < 72) {
+          px[i + 3] = Math.round(((lum - 32) / 40) * 255);
+        }
+      }
+      ctx.putImageData(d, 0, 0);
+    };
+    img.src = 'Lung transparent.jpg';
+  })();
+  </script>
+
+
+  <div class="numbers-header">
+    <h2 class="numbers-title">Live Dashboard</h2>
+  </div>
+
+  <main id="dashboard">
+
+    <section class="glass lung-section" aria-label="Air Quality Health Indicator">
+      <div id="lung-graphic" class="lung-graphic-container"></div>
+      <div class="lung-status-info">
+        <span class="lung-aqi-number" id="aqi-value">--</span>
+        <span class="lung-aqi-sub">AQI</span>
+        <p class="pulse-label">
+          Air Quality: <strong id="aqi-label">Connecting to sensor…</strong>
+        </p>
+      </div>
+    </section>
+
+    <div class="metrics-grid" role="list" aria-label="Sensor Readings">
+
+      <div class="glass metric-card" role="listitem">
+        <div class="metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="3"   fill="currentColor" opacity="0.9"/>
+            <circle cx="5"  cy="7"  r="2"   fill="currentColor" opacity="0.6"/>
+            <circle cx="19" cy="7"  r="1.5" fill="currentColor" opacity="0.5"/>
+            <circle cx="7"  cy="17" r="1.5" fill="currentColor" opacity="0.5"/>
+            <circle cx="18" cy="17" r="2"   fill="currentColor" opacity="0.6"/>
+            <circle cx="3"  cy="14" r="1"   fill="currentColor" opacity="0.35"/>
+            <circle cx="21" cy="11" r="1"   fill="currentColor" opacity="0.35"/>
+          </svg>
+        </div>
+        <span class="metric-label">PM2.5</span>
+        <span class="metric-value" id="pm25-value">--</span>
+        <span class="metric-unit">µg/m³ — Fine particulate matter</span>
+      </div>
+
+      <div class="glass metric-card" role="listitem">
+        <div class="metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="4.5" fill="currentColor" opacity="0.85"/>
+            <circle cx="4"  cy="9"  r="2.5" fill="currentColor" opacity="0.55"/>
+            <circle cx="20" cy="9"  r="2"   fill="currentColor" opacity="0.45"/>
+            <circle cx="6"  cy="17" r="2"   fill="currentColor" opacity="0.45"/>
+            <circle cx="19" cy="16" r="2.5" fill="currentColor" opacity="0.55"/>
+          </svg>
+        </div>
+        <span class="metric-label">PM10</span>
+        <span class="metric-value" id="pm10-value">--</span>
+        <span class="metric-unit">µg/m³ — Coarse particulate matter</span>
+      </div>
+
+      <div class="glass metric-card" role="listitem">
+        <div class="metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3 L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+            <path d="M12 18 L12 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+            <path d="M4.22 4.22 L6.34 6.34" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+            <path d="M17.66 17.66 L19.78 19.78" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+            <path d="M3 12 L6 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+            <path d="M18 12 L21 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+            <circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.75"/>
+          </svg>
+        </div>
+        <span class="metric-label">AQI</span>
+        <span class="metric-value" id="aqi-card-value">--</span>
+        <span class="metric-unit">EPA Air Quality Index</span>
+      </div>
+
+    </div>
+
+    <section class="glass chart-section" aria-label="PM2.5 History Chart">
+      <p class="section-title">PM2.5 — Last 60 seconds</p>
+      <div class="chart-container">
+        <canvas id="pm25-chart"></canvas>
+      </div>
+    </section>
+
+    <section class="glass risk-panel" aria-label="Personal Risk Assessment">
+      <div class="risk-main">
+        <div class="risk-identity">
+          <span class="risk-eyebrow">Real-time assessment</span>
+          <span class="risk-title">Personal Risk Level</span>
+          <span id="risk-level">--</span>
+        </div>
+        <div class="risk-divider" aria-hidden="true"></div>
+        <div class="risk-detail">
+          <p id="risk-advice">Initialising sensor data…</p>
+          <div class="risk-tags" aria-label="Active profile">
+            <span class="risk-tag tag-profile">
+              Profile: <span id="risk-profile-label">Normal</span>
+            </span>
+            <span class="risk-tag tag-sensor">Live sensor</span>
+            <span class="risk-tag tag-epa">EPA standard</span>
+          </div>
+        </div>
+      </div>
+      <div class="risk-illustration" aria-hidden="true">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <path d="M60 10 L96 26 L96 60 Q96 88 60 108 Q24 88 24 60 L24 26 Z"
+                fill="rgba(82,183,136,0.15)" stroke="rgba(82,183,136,0.5)" stroke-width="2"/>
+          <circle cx="60" cy="60" r="22" fill="rgba(82,183,136,0.2)"
+                  stroke="rgba(82,183,136,0.6)" stroke-width="2"/>
+          <path d="M48 60 L56 68 L72 52" stroke="#52b788" stroke-width="3"
+                fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </section>
+
+  </main>
+
+
+  <div class="numbers-header">
+    <h2 class="numbers-title">Indoor vs Outdoor Comparison</h2>
+  </div>
+
+  <section id="compare-section" aria-label="Comparison Dashboard">
+
+    <div class="cmp-status-bar cmp-status-bar-top">
+      <div class="cmp-status-chip">
+        <div id="status-dot-cmp" class="cmp-dot live"></div>
+        <span>Sensor: <strong id="cmp-sensor-time">--</strong></span>
+      </div>
+      <div class="cmp-status-chip">
+        <div id="cmp-outdoor-dot" class="cmp-dot" data-state="pending"></div>
+        <span>Outdoor: <strong id="cmp-outdoor-time">--</strong></span>
+        <span id="cmp-cached-badge" class="cmp-cached-badge" style="display:none"></span>
+      </div>
+      <div class="cmp-location-chip">
+        <span>📍 <span id="cmp-location">Detecting location…</span></span>
+      </div>
+      <button id="cmp-refresh-btn" class="cmp-refresh-btn" title="Refresh outdoor data">↺ Refresh</button>
+    </div>
+
+    <div id="cmp-loading" class="cmp-state-overlay">
+      <div class="cmp-spinner"></div>
+      <p>Fetching outdoor air quality data…</p>
+    </div>
+
+    <div id="cmp-error" class="cmp-state-overlay cmp-error-state" style="display:none">
+      <span class="cmp-error-icon">⚠</span>
+      <p id="cmp-error-msg">Unable to fetch outdoor data.</p>
+      <button id="cmp-retry-btn" class="cmp-refresh-btn">Try again</button>
+    </div>
+
+    <div id="cmp-main" style="display:none">
+
+      <div class="glass cmp-verdict">
+        <span id="cmp-verdict-badge" class="verdict-badge" data-type="neutral">--</span>
+        <div class="verdict-detail">
+          <strong id="cmp-verdict-title">Analysing…</strong>
+          <p id="cmp-verdict-desc">Comparing sensor and outdoor readings.</p>
+        </div>
+      </div>
+
+      <div class="cmp-metrics-grid">
+
+        <div class="glass cmp-card">
+          <h3 class="cmp-card-title">PM2.5 <span class="cmp-card-unit">µg/m³</span></h3>
+          <div class="cmp-pair-row">
+            <div class="cmp-side">
+              <span class="cmp-side-label indoor-label">🏠 Sensor</span>
+              <span class="cmp-big-val" id="cmp-pm25-in">--</span>
+            </div>
+            <div class="cmp-vs-divider">vs</div>
+            <div class="cmp-side">
+              <span class="cmp-side-label outdoor-label">🌤 Outdoor</span>
+              <span class="cmp-big-val" id="cmp-pm25-out">--</span>
+            </div>
+          </div>
+          <div class="cmp-bars">
+            <div class="cmp-bar-row">
+              <span class="cmp-bar-lbl">Sensor</span>
+              <div class="cmp-bar-track"><div class="cmp-bar-fill indoor-fill" id="cmp-pm25-in-bar" style="width:0%"></div></div>
+            </div>
+            <div class="cmp-bar-row">
+              <span class="cmp-bar-lbl">Outdoor</span>
+              <div class="cmp-bar-track"><div class="cmp-bar-fill outdoor-fill" id="cmp-pm25-out-bar" style="width:0%"></div></div>
+            </div>
+          </div>
+          <div class="cmp-delta-chip" id="cmp-pm25-delta" data-type="neutral">--</div>
+        </div>
+
+        <div class="glass cmp-card">
+          <h3 class="cmp-card-title">PM10 <span class="cmp-card-unit">µg/m³</span></h3>
+          <div class="cmp-pair-row">
+            <div class="cmp-side">
+              <span class="cmp-side-label indoor-label">🏠 Sensor</span>
+              <span class="cmp-big-val" id="cmp-pm10-in">--</span>
+            </div>
+            <div class="cmp-vs-divider">vs</div>
+            <div class="cmp-side">
+              <span class="cmp-side-label outdoor-label">🌤 Outdoor</span>
+              <span class="cmp-big-val" id="cmp-pm10-out">--</span>
+            </div>
+          </div>
+          <div class="cmp-bars">
+            <div class="cmp-bar-row">
+              <span class="cmp-bar-lbl">Sensor</span>
+              <div class="cmp-bar-track"><div class="cmp-bar-fill indoor-fill" id="cmp-pm10-in-bar" style="width:0%"></div></div>
+            </div>
+            <div class="cmp-bar-row">
+              <span class="cmp-bar-lbl">Outdoor</span>
+              <div class="cmp-bar-track"><div class="cmp-bar-fill outdoor-fill" id="cmp-pm10-out-bar" style="width:0%"></div></div>
+            </div>
+          </div>
+          <div class="cmp-delta-chip" id="cmp-pm10-delta" data-type="neutral">--</div>
+        </div>
+
+        <div class="glass cmp-card">
+          <h3 class="cmp-card-title">Air Quality Index</h3>
+          <div class="cmp-pair-row">
+            <div class="cmp-side">
+              <span class="cmp-side-label indoor-label">🏠 Sensor AQI</span>
+              <span class="cmp-big-val" id="cmp-aqi-in">--</span>
+              <span class="cmp-aqi-label" id="cmp-aqi-in-label">--</span>
+            </div>
+            <div class="cmp-vs-divider">vs</div>
+            <div class="cmp-side">
+              <span class="cmp-side-label outdoor-label">🌤 EPA Index</span>
+              <span class="cmp-big-val" id="cmp-aqi-out">--</span>
+              <span class="cmp-aqi-label" id="cmp-aqi-out-label">--</span>
+            </div>
+          </div>
+          <p class="cmp-card-note">Sensor AQI computed via EPA PM2.5 formula. Outdoor index is WeatherAPI's US-EPA tier (1–6 scale).</p>
+        </div>
+
+        <div class="glass cmp-card cmp-card-weather">
+          <h3 class="cmp-card-title">Outdoor Conditions</h3>
+          <div class="weather-body">
+            <span id="cmp-cond-icon" class="weather-emoji-icon" aria-hidden="true"></span>
+            <span class="weather-condition" id="cmp-condition">--</span>
+          </div>
+          <div class="weather-stats">
+            <div class="weather-stat">
+              <span class="weather-stat-label">🌡 Temperature</span>
+              <span class="weather-stat-val" id="cmp-temp">--</span>
+            </div>
+            <div class="weather-stat">
+              <span class="weather-stat-label">💧 Humidity</span>
+              <span class="weather-stat-val" id="cmp-humidity">--</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="glass cmp-insights">
+        <h3 class="cmp-insights-title">Health Insights</h3>
+        <div id="cmp-insights-list" class="insights-list">
+          <p class="cmp-insights-placeholder">Loading insights…</p>
+        </div>
+      </div>
+
+      <div class="glass cmp-chart-section">
+        <p class="section-title">PM2.5 &amp; PM10 — Indoor vs Outdoor</p>
+        <div class="cmp-chart-container">
+          <canvas id="cmp-chart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <section id="about" aria-label="About the Team">
+    <div class="numbers-header">
+      <h2 class="numbers-title">About the Team</h2>
+    </div>
+    <div class="about-grid">
+
+      <div class="glass about-card">
+        <div class="about-avatar about-avatar-photo">
+          <img src="Rohan.jpg" alt="Rohan Chakrabortygupta" class="about-member-photo" />
+        </div>
+        <h3 class="about-name">Rohan Chakrabortygupta</h3>
+        <p class="about-role">Backend Developer</p>
+        <p class="about-bio">Built the custom API that connects our Raspberry Pi sensor to the live dashboard, and designed the enclosure that houses the entire device on SOLIDWORKS.</p>
+      </div>
+
+      <div class="glass about-card">
+        <div class="about-avatar about-avatar-photo">
+          <img src="Terence.jpg" alt="Terence Ren" class="about-member-photo" />
+        </div>
+        <h3 class="about-name">Terence Ren</h3>
+        <p class="about-role">Frontend Developer</p>
+        <p class="about-bio">Designed and built the ProjectGasu dashboard allowing raw sensor data to be visualized as a clean, real-time interface anyone can read at a glance.</p>
+      </div>
+
+      <div class="glass about-card">
+        <div class="about-avatar about-avatar-photo">
+          <img src="Cristian.jpg" alt="Cristian Liu" class="about-member-photo cristian-photo" />
+        </div>
+        <h3 class="about-name">Cristian Liu</h3>
+        <p class="about-role">Health Specialist &amp; Designer</p>
+        <p class="about-bio">Researched the health risks of PM2.5 exposure, evaluated a range of sensors, and identified the best hardware fit for our needs. Also led the visual design of the interface.</p>
+      </div>
+
+      <div class="glass about-card">
+        <div class="about-avatar about-avatar-photo">
+          <img src="Ryan.jpg" alt="Ryan Jian" class="about-member-photo ryan-photo" />
+        </div>
+        <h3 class="about-name">Ryan Jian</h3>
+        <p class="about-role">Hardware Specialist &amp; UI Developer</p>
+        <p class="about-bio">Helped set up the hardware in the enclosure and identified possible failures before they became issues. Also helped make the UI interactive and easy to use.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-inner">
+      <span class="footer-brand">ProjectGasu</span>
+      <span class="footer-divider">·</span>
+      <span>Real-time air quality monitoring</span>
+    </div>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>
